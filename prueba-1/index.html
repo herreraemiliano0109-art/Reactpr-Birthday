@@ -811,7 +811,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         if (!AudioEngine) return;
         if (!reactorContext) reactorContext = new AudioEngine();
         const ctx = reactorContext;
-        if (ctx.state === 'suspended') ctx.resume().catch(() => stopReactorSound());
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
         const now = ctx.currentTime, remaining = Math.max(.05, (holdDuration - (performance.now() - holdStarted)) / 1000);
         const gain = ctx.createGain(), tone = ctx.createOscillator(), harmonic = ctx.createOscillator(), bass = ctx.createOscillator();
         const bassGain = ctx.createGain(), hissGain = ctx.createGain(), filter = ctx.createBiquadFilter(), noise = ctx.createBufferSource();
@@ -837,7 +837,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         hissGain.gain.value = .24; noise.connect(filter); filter.connect(hissGain); hissGain.connect(gain);
         reactorVoice = { gain, tone, level, sources: [tone, harmonic, bass, noise], nodes: [tone, harmonic, bass, noise, harmonicGain, bassGain, hissGain, filter, gain] };
         reactorVoice.sources.forEach(source => source.start(now));
-      } catch (_) { stopReactorSound(); /* La sorpresa funciona aunque no haya Web Audio. */ }
+      } catch (_) { /* El audio grabado continúa aunque falle Web Audio. */ }
     }
     byId('reactor-sound').addEventListener('click', () => {
       reactorSoundEnabled = !reactorSoundEnabled;
