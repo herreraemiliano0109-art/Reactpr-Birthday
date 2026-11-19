@@ -7,6 +7,24 @@
   <meta name="description" content="Una pequeña sorpresa con una gran fuente de energía. Activa el reactor y descubre un cumpleaños muy especial, de parte de Emiliano.">
   <meta name="referrer" content="no-referrer">
   <title>Prueba 1 · Arc Reactor Birthday</title>
+  <!-- ARC_SHARE_START -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_MX">
+  <meta property="og:site_name" content="Arc Reactor Birthday">
+  <meta property="og:title" content="Hay una sorpresa esperándote">
+  <meta property="og:description" content="Enciende el reactor y descubre lo que preparé para ti.">
+  <meta property="og:url" content="https://herreraemiliano0109-art.github.io/Reactpr-Birthday/">
+  <meta property="og:image" content="https://herreraemiliano0109-art.github.io/Reactpr-Birthday/assets/reactor-portada-v2.jpg">
+  <meta property="og:image:secure_url" content="https://herreraemiliano0109-art.github.io/Reactpr-Birthday/assets/reactor-portada-v2.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Un reactor azul luminoso junto al mensaje: Hay una sorpresa esperándote.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Hay una sorpresa esperándote">
+  <meta name="twitter:description" content="Enciende el reactor y descubre lo que preparé para ti.">
+  <meta name="twitter:image" content="https://herreraemiliano0109-art.github.io/Reactpr-Birthday/assets/reactor-portada-v2.jpg">
+  <!-- ARC_SHARE_END -->
   <!-- Tipografías originales de Google Fonts, incluidas para funcionar sin conexión. -->
   <style id="local-fonts">
 @font-face {
@@ -446,6 +464,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     .hold-instruction { margin: 19px 0 0; font-size: 14px; line-height: 1.7; }
     .hold-instruction strong { font-weight: 500; border-bottom: 1px solid #9deeff50; padding-bottom: 5px; }
     .hold-hint { margin: 9px 0 0; font-size: 12px; color: var(--muted); line-height: 1.7; }
+    .reactor-sound { margin: 12px auto 0; min-height: 44px; padding: 8px 14px; background: transparent; border: 1px solid #7bb4c23d; border-radius: 6px; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+    .reactor-sound:hover, .reactor-sound:focus-visible { color: var(--cyan); border-color: var(--cyan); }
+    .unlocked .reactor-sound { display: none; }
     .protocol-footer { display: flex; justify-content: space-between; gap: 15px; padding: 21px 0; border-top: 1px solid var(--line); color: var(--muted); font: 12px/1.6 var(--mono); }
     .protocol-footer .dedication { color: var(--gold); }
     .protocol-footer .tiny-line { color: #617f8f; }
@@ -607,6 +628,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <p class="charge-message" id="charge-message" role="status" aria-live="polite">Sistema de celebración en espera</p>
           <p class="hold-instruction"><strong>Mantén presionado el reactor para iniciar</strong></p>
           <p class="hold-hint" id="hold-hint">Solo 3 segundos para encender algo especial.</p>
+          <button class="reactor-sound" id="reactor-sound" type="button" aria-pressed="true">Sonido del reactor: activado</button>
         </div>
       </section>
       <section class="surprise" id="surprise" aria-labelledby="birthday-title" hidden>
@@ -744,6 +766,71 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         try { navigator.vibrate(pattern); } catch (_) { /* Vibración opcional. */ }
       }
     }
+    // Síntesis original: zumbido, turbina ascendente y pulso de activación.
+    // El contexto se abre solo dentro del gesto de pulsar; nunca al cargar la página.
+    let reactorContext = null;
+    let reactorVoice = null;
+    let reactorSoundEnabled = true;
+    let reactorNoise = null;
+    function stopReactorSound(activated = false) {
+      const voice = reactorVoice;
+      reactorVoice = null;
+      if (!voice) return;
+      const ctx = reactorContext, now = ctx.currentTime;
+      const duration = ctx.state === 'running' ? (activated ? .65 : .12) : 0;
+      const gain = voice.gain.gain;
+      if (gain.cancelAndHoldAtTime) gain.cancelAndHoldAtTime(now);
+      else { const current = gain.value; gain.cancelScheduledValues(now); gain.setValueAtTime(current, now); }
+      if (activated && duration) {
+        voice.tone.frequency.cancelScheduledValues(now);
+        voice.tone.frequency.setValueAtTime(880, now);
+        voice.tone.frequency.exponentialRampToValueAtTime(220, now + duration);
+        gain.linearRampToValueAtTime(voice.level, now + .06);
+      }
+      gain.linearRampToValueAtTime(0, now + duration);
+      voice.sources.forEach(source => { try { source.stop(now + duration + .02); } catch (_) {} });
+      voice.sources[0].onended = () => voice.nodes.forEach(node => node.disconnect());
+    }
+    function startReactorSound() {
+      if (!reactorSoundEnabled || giftSettings.initialVolume === 0) return;
+      try {
+        const AudioEngine = window.AudioContext || window.webkitAudioContext;
+        if (!AudioEngine) return;
+        if (!reactorContext) reactorContext = new AudioEngine();
+        const ctx = reactorContext;
+        if (ctx.state === 'suspended') ctx.resume().catch(() => stopReactorSound());
+        stopReactorSound();
+        const now = ctx.currentTime, remaining = Math.max(.05, (holdDuration - (performance.now() - holdStarted)) / 1000);
+        const gain = ctx.createGain(), tone = ctx.createOscillator(), bass = ctx.createOscillator();
+        const bassGain = ctx.createGain(), hissGain = ctx.createGain(), filter = ctx.createBiquadFilter(), noise = ctx.createBufferSource();
+        const level = .17 * Math.min(1, giftSettings.initialVolume / .45);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(level * .45, now + .06);
+        gain.gain.linearRampToValueAtTime(level, now + remaining);
+        gain.connect(ctx.destination);
+        tone.type = 'sine'; tone.frequency.setValueAtTime(110, now); tone.frequency.exponentialRampToValueAtTime(680, now + remaining); tone.connect(gain);
+        bass.type = 'triangle'; bass.frequency.setValueAtTime(48, now); bass.frequency.linearRampToValueAtTime(82, now + remaining);
+        bassGain.gain.value = .28; bass.connect(bassGain); bassGain.connect(gain);
+        if (!reactorNoise) {
+          reactorNoise = ctx.createBuffer(1, Math.floor(ctx.sampleRate * .5), ctx.sampleRate);
+          const samples = reactorNoise.getChannelData(0);
+          for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
+        }
+        noise.buffer = reactorNoise; noise.loop = true;
+        filter.type = 'bandpass'; filter.Q.value = .8; filter.frequency.setValueAtTime(250, now); filter.frequency.exponentialRampToValueAtTime(1800, now + remaining);
+        hissGain.gain.value = .24; noise.connect(filter); filter.connect(hissGain); hissGain.connect(gain);
+        reactorVoice = { gain, tone, level, sources: [tone, bass, noise], nodes: [tone, bass, noise, bassGain, hissGain, filter, gain] };
+        reactorVoice.sources.forEach(source => source.start(now));
+      } catch (_) { stopReactorSound(); /* La sorpresa funciona aunque no haya Web Audio. */ }
+    }
+    byId('reactor-sound').addEventListener('click', () => {
+      reactorSoundEnabled = !reactorSoundEnabled;
+      byId('reactor-sound').setAttribute('aria-pressed', String(reactorSoundEnabled));
+      byId('reactor-sound').textContent = `Sonido del reactor: ${reactorSoundEnabled ? 'activado' : 'desactivado'}`;
+      if (!reactorSoundEnabled) stopReactorSound();
+    });
+    window.addEventListener('pagehide', () => stopReactorSound());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stopReactorSound(); });
     function paintCharge(value) {
       charge = Math.max(0, Math.min(100, value));
       const rounded = Math.floor(charge);
@@ -824,6 +911,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       byId('system-label').textContent = 'CARGANDO';
       vibrate(20);
       primeAudio();
+      startReactorSound();
       requestFrame();
       return true;
     }
@@ -838,6 +926,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       activeKey = null;
       releaseCapture();
       if (phase !== 'charging' || completed) return;
+      stopReactorSound();
       phase = 'resetting';
       resetFrom = charge;
       resetStarted = performance.now();
@@ -860,6 +949,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       byId('system-label').textContent = 'ACTIVADO';
       shell.classList.remove('charging');
       vibrate([30, 70, 40]);
+      stopReactorSound(true);
       playSong();
       byId('flash').classList.add('fire');
       setTimeout(() => {
