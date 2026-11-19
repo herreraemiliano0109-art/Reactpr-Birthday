@@ -662,6 +662,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   </dialog>
   <div class="flash" id="flash" aria-hidden="true"></div>
   <audio id="birthday-audio" preload="metadata" loop></audio>
+  <audio id="reactor-charge-audio" preload="auto" src="assets/reactor-carga.wav"></audio>
   <script>
     'use strict';
     // ============================================================
@@ -772,7 +773,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     let reactorVoice = null;
     let reactorSoundEnabled = true;
     let reactorNoise = null;
+    const chargeAudio = byId('reactor-charge-audio');
     function stopReactorSound(activated = false) {
+      chargeAudio.pause();
+      try { chargeAudio.currentTime = 0; } catch (_) {}
       const voice = reactorVoice;
       reactorVoice = null;
       if (!voice) return;
@@ -793,13 +797,21 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     }
     function startReactorSound() {
       if (!reactorSoundEnabled || giftSettings.initialVolume === 0) return;
+      stopReactorSound();
+      // El archivo comienza a sonar en el gesto táctil; algunos móviles
+      // aplazan la síntesis Web Audio hasta que termina la pulsación.
+      chargeAudio.volume = Math.min(1, giftSettings.initialVolume / .45);
+      try { chargeAudio.currentTime = 0; } catch (_) {}
+      try {
+        const chargePlayback = chargeAudio.play();
+        if (chargePlayback && typeof chargePlayback.catch === 'function') chargePlayback.catch(() => {});
+      } catch (_) { /* El reactor sigue funcionando si el navegador bloquea el audio. */ }
       try {
         const AudioEngine = window.AudioContext || window.webkitAudioContext;
         if (!AudioEngine) return;
         if (!reactorContext) reactorContext = new AudioEngine();
         const ctx = reactorContext;
         if (ctx.state === 'suspended') ctx.resume().catch(() => stopReactorSound());
-        stopReactorSound();
         const now = ctx.currentTime, remaining = Math.max(.05, (holdDuration - (performance.now() - holdStarted)) / 1000);
         const gain = ctx.createGain(), tone = ctx.createOscillator(), harmonic = ctx.createOscillator(), bass = ctx.createOscillator();
         const bassGain = ctx.createGain(), hissGain = ctx.createGain(), filter = ctx.createBiquadFilter(), noise = ctx.createBufferSource();
@@ -808,6 +820,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         gain.gain.linearRampToValueAtTime(level * .45, now + .06);
         gain.gain.linearRampToValueAtTime(level, now + remaining);
         gain.connect(ctx.destination);
+        // Los altavoces del móvil apenas reproducen el grave inicial. Esta capa
+        // media suena desde el primer instante y asciende con la carga.
         tone.type = 'sine'; tone.frequency.setValueAtTime(280, now); tone.frequency.exponentialRampToValueAtTime(850, now + remaining); tone.connect(gain);
         const harmonicGain = ctx.createGain(); harmonicGain.gain.value = .22;
         harmonic.type = 'sine'; harmonic.frequency.setValueAtTime(560, now); harmonic.frequency.exponentialRampToValueAtTime(1700, now + remaining); harmonic.connect(harmonicGain); harmonicGain.connect(gain);
@@ -912,7 +926,6 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       shell.classList.add('charging');
       byId('system-label').textContent = 'CARGANDO';
       vibrate(20);
-      primeAudio();
       startReactorSound();
       requestFrame();
       return true;
