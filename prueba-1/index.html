@@ -662,7 +662,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   </dialog>
   <div class="flash" id="flash" aria-hidden="true"></div>
   <audio id="birthday-audio" preload="metadata" loop></audio>
-  <audio id="reactor-charge-audio" preload="auto" src="assets/reactor-carga.wav"></audio>
+  <audio id="reactor-charge-audio" preload="auto" src="assets/reactor-carga-v2.wav"></audio>
   <script>
     'use strict';
     // ============================================================
@@ -775,8 +775,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     let reactorNoise = null;
     const chargeAudio = byId('reactor-charge-audio');
     function stopReactorSound(activated = false) {
-      chargeAudio.pause();
-      try { chargeAudio.currentTime = 0; } catch (_) {}
+      if (!activated) {
+        chargeAudio.pause();
+        try { chargeAudio.currentTime = 0; } catch (_) {}
+      }
       const voice = reactorVoice;
       reactorVoice = null;
       if (!voice) return;
@@ -965,7 +967,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       shell.classList.remove('charging');
       vibrate([30, 70, 40]);
       stopReactorSound(true);
+      // La canción entra suavemente después del remate del reactor.
+      audio.volume = Math.min(audio.volume, .08);
       playSong();
+      setTimeout(() => { audio.volume = Math.max(0, Math.min(1, giftSettings.initialVolume)); }, 850);
       byId('flash').classList.add('fire');
       setTimeout(() => {
         page.classList.add('unlocked');
