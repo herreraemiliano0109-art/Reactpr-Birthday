@@ -801,14 +801,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         if (ctx.state === 'suspended') ctx.resume().catch(() => stopReactorSound());
         stopReactorSound();
         const now = ctx.currentTime, remaining = Math.max(.05, (holdDuration - (performance.now() - holdStarted)) / 1000);
-        const gain = ctx.createGain(), tone = ctx.createOscillator(), bass = ctx.createOscillator();
+        const gain = ctx.createGain(), tone = ctx.createOscillator(), harmonic = ctx.createOscillator(), bass = ctx.createOscillator();
         const bassGain = ctx.createGain(), hissGain = ctx.createGain(), filter = ctx.createBiquadFilter(), noise = ctx.createBufferSource();
         const level = .17 * Math.min(1, giftSettings.initialVolume / .45);
         gain.gain.setValueAtTime(0, now);
         gain.gain.linearRampToValueAtTime(level * .45, now + .06);
         gain.gain.linearRampToValueAtTime(level, now + remaining);
         gain.connect(ctx.destination);
-        tone.type = 'sine'; tone.frequency.setValueAtTime(110, now); tone.frequency.exponentialRampToValueAtTime(680, now + remaining); tone.connect(gain);
+        tone.type = 'sine'; tone.frequency.setValueAtTime(280, now); tone.frequency.exponentialRampToValueAtTime(850, now + remaining); tone.connect(gain);
+        const harmonicGain = ctx.createGain(); harmonicGain.gain.value = .22;
+        harmonic.type = 'sine'; harmonic.frequency.setValueAtTime(560, now); harmonic.frequency.exponentialRampToValueAtTime(1700, now + remaining); harmonic.connect(harmonicGain); harmonicGain.connect(gain);
         bass.type = 'triangle'; bass.frequency.setValueAtTime(48, now); bass.frequency.linearRampToValueAtTime(82, now + remaining);
         bassGain.gain.value = .28; bass.connect(bassGain); bassGain.connect(gain);
         if (!reactorNoise) {
@@ -817,9 +819,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
         }
         noise.buffer = reactorNoise; noise.loop = true;
-        filter.type = 'bandpass'; filter.Q.value = .8; filter.frequency.setValueAtTime(250, now); filter.frequency.exponentialRampToValueAtTime(1800, now + remaining);
+        filter.type = 'bandpass'; filter.Q.value = .8; filter.frequency.setValueAtTime(700, now); filter.frequency.exponentialRampToValueAtTime(2200, now + remaining);
         hissGain.gain.value = .24; noise.connect(filter); filter.connect(hissGain); hissGain.connect(gain);
-        reactorVoice = { gain, tone, level, sources: [tone, bass, noise], nodes: [tone, bass, noise, bassGain, hissGain, filter, gain] };
+        reactorVoice = { gain, tone, level, sources: [tone, harmonic, bass, noise], nodes: [tone, harmonic, bass, noise, harmonicGain, bassGain, hissGain, filter, gain] };
         reactorVoice.sources.forEach(source => source.start(now));
       } catch (_) { stopReactorSound(); /* La sorpresa funciona aunque no haya Web Audio. */ }
     }
