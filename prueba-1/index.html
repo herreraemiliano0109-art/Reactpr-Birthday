@@ -677,6 +677,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     const photoPath = "assets/foto.png";
     const photoDescription = "Un ramo de girasoles";
     const songPath = "assets/cancion.mp3";
+    const songClipStart = 0;
+    const songClipEnd = 0; // 0 reproduce la canción completa.
     const giftButtonText = "Algo Especial";
     const giftMessage = "Que te la pases bien en tu dia Especial";
     const initialVolume = 0.45;
@@ -704,10 +706,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           if (typeof input.initialVolume !== 'number' || !Number.isFinite(input.initialVolume) || input.initialVolume < 0 || input.initialVolume > 1) return {};
           result.initialVolume = input.initialVolume;
         }
+        if ('songClipStart' in input || 'songClipEnd' in input) {
+          const start = input.songClipStart, end = input.songClipEnd;
+          if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < 0 || (end !== 0 && end <= start) || end - start > 3600) return {};
+          result.songClipStart = start;
+          result.songClipEnd = end;
+        }
         return result;
       } catch (_) { return {}; }
     }
-    const giftSettings = { birthdayName, signatureName, letterText, photoDescription, giftButtonText, giftMessage, initialVolume, ...readSharedGift() };
+    const giftSettings = { birthdayName, signatureName, letterText, photoDescription, giftButtonText, giftMessage, initialVolume, songClipStart, songClipEnd, ...readSharedGift() };
     window.addEventListener('hashchange', () => window.location.reload());
 
     const byId = id => document.getElementById(id);
@@ -875,9 +883,30 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     async function playSong() {
       if (audioMissing) { paintAudio(); return; }
       audio.muted = false;
+      if (giftSettings.songClipEnd > giftSettings.songClipStart && (audio.currentTime < giftSettings.songClipStart || audio.currentTime >= giftSettings.songClipEnd)) {
+        try { audio.currentTime = giftSettings.songClipStart; } catch (_) {}
+      }
       try { await audio.play(); } catch (_) { /* El botón permite reintentar si el navegador bloquea autoplay. */ }
       paintAudio();
     }
+    const clipEnabled = giftSettings.songClipEnd > giftSettings.songClipStart;
+    audio.loop = !clipEnabled;
+    audio.addEventListener('loadedmetadata', () => {
+      if (clipEnabled && giftSettings.songClipStart < audio.duration) {
+        try { audio.currentTime = giftSettings.songClipStart; } catch (_) {}
+      }
+    });
+    audio.addEventListener('timeupdate', () => {
+      if (clipEnabled && audio.currentTime >= Math.min(giftSettings.songClipEnd, audio.duration) - .04) {
+        try { audio.currentTime = giftSettings.songClipStart; } catch (_) {}
+      }
+    });
+    audio.addEventListener('ended', () => {
+      if (clipEnabled && !audioMissing) {
+        try { audio.currentTime = giftSettings.songClipStart; } catch (_) {}
+        playSong();
+      }
+    });
     audio.addEventListener('error', () => { audioMissing = true; paintAudio(); });
     ['play', 'pause', 'ended'].forEach(name => audio.addEventListener(name, paintAudio));
     audioButton.addEventListener('click', () => { if (audio.paused) playSong(); else audio.pause(); });
