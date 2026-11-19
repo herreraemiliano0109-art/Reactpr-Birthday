@@ -780,15 +780,15 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       reactorVoice = null;
       if (!voice) return;
       const ctx = reactorContext, now = ctx.currentTime;
-      const duration = ctx.state === 'running' ? (activated ? .65 : .12) : 0;
+      const duration = ctx.state === 'running' ? (activated ? .75 : .12) : 0;
       const gain = voice.gain.gain;
       if (gain.cancelAndHoldAtTime) gain.cancelAndHoldAtTime(now);
       else { const current = gain.value; gain.cancelScheduledValues(now); gain.setValueAtTime(current, now); }
       if (activated && duration) {
         voice.tone.frequency.cancelScheduledValues(now);
-        voice.tone.frequency.setValueAtTime(880, now);
-        voice.tone.frequency.exponentialRampToValueAtTime(220, now + duration);
-        gain.linearRampToValueAtTime(voice.level, now + .06);
+        voice.tone.frequency.setValueAtTime(1050, now);
+        voice.tone.frequency.exponentialRampToValueAtTime(420, now + duration);
+        gain.linearRampToValueAtTime(Math.min(.5, voice.level * 3), now + .06);
       }
       gain.linearRampToValueAtTime(0, now + duration);
       voice.sources.forEach(source => { try { source.stop(now + duration + .02); } catch (_) {} });
