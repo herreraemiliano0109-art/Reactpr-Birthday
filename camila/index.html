@@ -673,7 +673,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     const birthdayName = "Camila";
     const letterText = "¡Feliz cumpleaños, Camila! 🎉💜\n\nQuise hacer esta app especialmente para ti como una sorpresa. Le puse tiempo y cariño, y espero que te guste y te saque una sonrisa. ✨\n\nAunque estemos lejos, me alegra mucho haberte conocido y poder compartir contigo nuestras pláticas y risas. Espero que este nuevo año te traiga experiencias bonitas, metas cumplidas y muchas razones para ser feliz. 🎂💜";
     const signatureName = "Emiliano";
-    const photoPath = "assets/foto.png?v=bde173ef";
+    const photoPath = "assets/foto.png?v=bde173ef"; // Respaldo si GitHub no responde.
     const photoDescription = "Asa";
     const songPath = "assets/cancion.mp3";
     const songClipStart = 0;
@@ -1068,11 +1068,36 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     // La carga nunca depende de que Google Fonts, la foto o el audio respondan.
     // La foto puede terminar de cargarse después, sin detener la experiencia.
     byId('loading').hidden = false;
+    async function publishedPhotoPath() {
+      try {
+        const base = 'https://api.github.com/repos/herreraemiliano0109-art/Reactpr-Birthday';
+        const response = await fetch(base + '/contents/camila/assets?ref=main', { cache: 'no-store' });
+        if (!response.ok) throw new Error('No se pudo consultar la carpeta de fotos');
+        const files = (await response.json()).filter(file => file.type === 'file' && /\.(png|jpe?g|webp)$/i.test(file.name));
+        if (!files.length) throw new Error('No hay fotos publicadas');
+        let chosen = files[0];
+        if (files.length > 1) {
+          const dated = await Promise.all(files.map(async file => {
+            try {
+              const history = await fetch(base + '/commits?path=' + encodeURIComponent(file.path) + '&per_page=1', { cache: 'no-store' });
+              if (!history.ok) return { file, date: '' };
+              const commits = await history.json();
+              return { file, date: commits[0]?.commit?.committer?.date || '' };
+            } catch (_) { return { file, date: '' }; }
+          }));
+          dated.sort((a, b) => b.date.localeCompare(a.date));
+          chosen = dated[0].file;
+        }
+        return chosen.download_url + '?v=' + chosen.sha;
+      } catch (_) {
+        return photoPath;
+      }
+    }
     const photoReady = new Promise(resolve => {
       photo.addEventListener('load', () => { photo.hidden = false; byId('photo-fallback').hidden = true; resolve(); }, { once: true });
       photo.addEventListener('error', () => { photo.hidden = true; byId('photo-fallback').hidden = false; resolve(); }, { once: true });
       photo.alt = giftSettings.photoDescription;
-      photo.src = photoPath;
+      publishedPhotoPath().then(path => { photo.src = path; });
     });
     Promise.race([photoReady, new Promise(resolve => setTimeout(resolve, 1800))]).then(() => {
       phase = 'idle';
