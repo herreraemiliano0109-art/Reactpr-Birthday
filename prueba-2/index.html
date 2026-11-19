@@ -661,7 +661,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   </dialog>
   <div class="flash" id="flash" aria-hidden="true"></div>
   <audio id="birthday-audio" preload="metadata" loop></audio>
-  <audio id="reactor-charge-audio" preload="auto" src="assets/reactor-carga-v4.wav"></audio>
+  <audio id="reactor-charge-audio" preload="auto" src="assets/reactor-carga-v5.wav"></audio>
   <script>
     'use strict';
     // ============================================================
@@ -782,16 +782,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       reactorVoice = null;
       if (!voice) return;
       const ctx = reactorContext, now = ctx.currentTime;
-      const duration = ctx.state === 'running' ? (activated ? .65 : .12) : 0;
+      const duration = ctx.state === 'running' ? (activated ? .08 : .12) : 0;
       const gain = voice.gain.gain;
       if (gain.cancelAndHoldAtTime) gain.cancelAndHoldAtTime(now);
       else { const current = gain.value; gain.cancelScheduledValues(now); gain.setValueAtTime(current, now); }
-      if (activated && duration) {
-        voice.tone.frequency.cancelScheduledValues(now);
-        voice.tone.frequency.setValueAtTime(880, now);
-        voice.tone.frequency.exponentialRampToValueAtTime(220, now + duration);
-        gain.linearRampToValueAtTime(voice.level, now + .06);
-      }
       gain.linearRampToValueAtTime(0, now + duration);
       voice.sources.forEach(source => { try { source.stop(now + duration + .02); } catch (_) {} });
       voice.sources[0].onended = () => voice.nodes.forEach(node => node.disconnect());
@@ -962,10 +956,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       shell.classList.remove('charging');
       vibrate([30, 70, 40]);
       stopReactorSound(true);
-      // La canción entra suavemente después del remate del reactor.
-      audio.volume = Math.min(audio.volume, .08);
-      playSong();
-      setTimeout(() => { audio.volume = Math.max(0, Math.min(1, giftSettings.initialVolume)); }, 850);
+      // El remate grabado termina antes de que empiece la canción.
+      setTimeout(playSong, 1200);
       byId('flash').classList.add('fire');
       setTimeout(() => {
         page.classList.add('unlocked');
