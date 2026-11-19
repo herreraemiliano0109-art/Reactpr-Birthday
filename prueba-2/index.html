@@ -661,7 +661,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   </dialog>
   <div class="flash" id="flash" aria-hidden="true"></div>
   <audio id="birthday-audio" preload="metadata" loop></audio>
-  <audio id="reactor-charge-audio" preload="auto" src="assets/reactor-carga-v3.wav"></audio>
+  <audio id="reactor-charge-audio" preload="auto" src="assets/reactor-carga-v4.wav"></audio>
   <script>
     'use strict';
     // ============================================================
@@ -782,15 +782,15 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       reactorVoice = null;
       if (!voice) return;
       const ctx = reactorContext, now = ctx.currentTime;
-      const duration = ctx.state === 'running' ? (activated ? .75 : .12) : 0;
+      const duration = ctx.state === 'running' ? (activated ? .65 : .12) : 0;
       const gain = voice.gain.gain;
       if (gain.cancelAndHoldAtTime) gain.cancelAndHoldAtTime(now);
       else { const current = gain.value; gain.cancelScheduledValues(now); gain.setValueAtTime(current, now); }
       if (activated && duration) {
         voice.tone.frequency.cancelScheduledValues(now);
-        voice.tone.frequency.setValueAtTime(650, now);
-        voice.tone.frequency.exponentialRampToValueAtTime(300, now + duration);
-        gain.linearRampToValueAtTime(Math.min(.5, voice.level * 3), now + .06);
+        voice.tone.frequency.setValueAtTime(880, now);
+        voice.tone.frequency.exponentialRampToValueAtTime(220, now + duration);
+        gain.linearRampToValueAtTime(voice.level, now + .06);
       }
       gain.linearRampToValueAtTime(0, now + duration);
       voice.sources.forEach(source => { try { source.stop(now + duration + .02); } catch (_) {} });
@@ -814,18 +814,14 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         const ctx = reactorContext;
         if (ctx.state === 'suspended') ctx.resume().catch(() => {});
         const now = ctx.currentTime, remaining = Math.max(.05, (holdDuration - (performance.now() - holdStarted)) / 1000);
-        const gain = ctx.createGain(), tone = ctx.createOscillator(), harmonic = ctx.createOscillator(), bass = ctx.createOscillator();
+        const gain = ctx.createGain(), tone = ctx.createOscillator(), bass = ctx.createOscillator();
         const bassGain = ctx.createGain(), hissGain = ctx.createGain(), filter = ctx.createBiquadFilter(), noise = ctx.createBufferSource();
-        const level = .12;
+        const level = .17;
         gain.gain.setValueAtTime(0, now);
         gain.gain.linearRampToValueAtTime(level * .45, now + .06);
         gain.gain.linearRampToValueAtTime(level, now + remaining);
         gain.connect(ctx.destination);
-        // Los altavoces del móvil apenas reproducen el grave inicial. Esta capa
-        // media suena desde el primer instante y asciende con la carga.
-        tone.type = 'sine'; tone.frequency.setValueAtTime(230, now); tone.frequency.exponentialRampToValueAtTime(520, now + remaining); tone.connect(gain);
-        const harmonicGain = ctx.createGain(); harmonicGain.gain.value = .22;
-        harmonic.type = 'sine'; harmonic.frequency.setValueAtTime(460, now); harmonic.frequency.exponentialRampToValueAtTime(1040, now + remaining); harmonic.connect(harmonicGain); harmonicGain.connect(gain);
+        tone.type = 'sine'; tone.frequency.setValueAtTime(110, now); tone.frequency.exponentialRampToValueAtTime(680, now + remaining); tone.connect(gain);
         bass.type = 'triangle'; bass.frequency.setValueAtTime(48, now); bass.frequency.linearRampToValueAtTime(82, now + remaining);
         bassGain.gain.value = .28; bass.connect(bassGain); bassGain.connect(gain);
         if (!reactorNoise) {
@@ -834,9 +830,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
         }
         noise.buffer = reactorNoise; noise.loop = true;
-        filter.type = 'bandpass'; filter.Q.value = .8; filter.frequency.setValueAtTime(500, now); filter.frequency.exponentialRampToValueAtTime(1200, now + remaining);
+        filter.type = 'bandpass'; filter.Q.value = .8; filter.frequency.setValueAtTime(250, now); filter.frequency.exponentialRampToValueAtTime(1800, now + remaining);
         hissGain.gain.value = .24; noise.connect(filter); filter.connect(hissGain); hissGain.connect(gain);
-        reactorVoice = { gain, tone, level, sources: [tone, harmonic, bass, noise], nodes: [tone, harmonic, bass, noise, harmonicGain, bassGain, hissGain, filter, gain] };
+        reactorVoice = { gain, tone, level, sources: [tone, bass, noise], nodes: [tone, bass, noise, bassGain, hissGain, filter, gain] };
         reactorVoice.sources.forEach(source => source.start(now));
       } catch (_) { /* El audio grabado continúa aunque falle Web Audio. */ }
     }
